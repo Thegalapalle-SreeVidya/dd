@@ -289,4 +289,16 @@ if generate_button or st.session_state.dashboard_generated:
             st.write("Please select exactly 5 columns for comparison.")
             
             
-        
+def color_metrics(val):
+    color_map = {
+        "No Shift": "#231F20",
+        "Moderate Shift": "#9FA1A4",
+        "Significant Shift": "#EE3524"
+    }
+    return f"background-color: {color_map.get(val, '')}"
+
+
+# Apply conditional formatting
+                styled_metrics_df = metrics_df.style.applymap(color_metrics, subset=['PSI RAG', 'Missing Value Checks Shift'])
+
+                st.write(styled_metrics_df.to_html(), unsafe_allow_html=True,hide_index=True,use_container_width=True)
