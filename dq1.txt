@@ -1,34 +1,69 @@
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import time
+import streamlit as st
+import pandas as pd
+import altair as alt
+from io import BytesIO
+import zipfile
+import os
 
-# Initialize the WebDriver (e.g., for Chrome)
-driver = webdriver.Chrome()
+# Sample Data for Demonstration
+df = pd.DataFrame({
+    'Category': ['A', 'B', 'C', 'D'],
+    'Values': [10, 20, 30, 40]
+})
 
-try:
-    # Navigate to the webpage
-    driver.get("http://your-webpage-url.com")
+def save_chart_as_image(chart, filename):
+    buf = BytesIO()
+    chart.save(buf, format='png')
+    buf.seek(0)
+    with open(filename, 'wb') as f:
+        f.write(buf.getbuffer())
 
-    # Wait until the necessary elements are loaded
-    wait = WebDriverWait(driver, 10)
+def create_zip_file():
+    # Create a zip file
+    with zipfile.ZipFile('tabs_content.zip', 'w') as zf:
+        # Save data as CSV
+        df.to_csv('data.csv', index=False)
+        zf.write('data.csv')
 
-    # Example: Update a text field (replace with your actual element ID, name, or class)
-    text_field = wait.until(EC.presence_of_element_located((By.ID, "text_field_id")))
-    text_field.clear()
-    text_field.send_keys("New updated details")
+        # Save charts as images
+        chart = df.plot(kind='bar', x='Category', y='Values')
+        chart.figure.savefig("chart1.png")
+        zf.write('chart1.png')
 
-    # Example: Click a submit button (replace with your actual element ID, name, or class)
-    submit_button = wait.until(EC.element_to_be_clickable((By.ID, "submit_button_id")))
-    submit_button.click()
+        chart.figure.savefig("chart2.png")
+        zf.write('chart2.png')
 
-    # Add any other interactions you need to perform on the webpage
+    # Read the zip file for download
+    with open('tabs_content.zip', 'rb') as f:
+        return BytesIO(f.read())
 
-    # Wait for some time to observe the changes (optional)
-    time.sleep(5)
+st.title("Streamlit Tabs with Download Option")
 
-finally:
-    # Close the WebDriver
-    driver.quit()
+tabs = st.tabs(["Tab 1", "Tab 2", "Download"])
+
+with tabs[0]:
+    st.header("Tab 1: Data and Chart")
+    st.write(df)
+    chart1 = alt.Chart(df).mark_bar().encode(
+        x='Category',
+        y='Values'
+    )
+    st.altair_chart(chart1, use_container_width=True)
+
+with tabs[1]:
+    st.header("Tab 2: Chart")
+    chart2 = alt.Chart(df).mark_bar().encode(
+        x='Category',
+        y='Values'
+    )
+    st.altair_chart(chart2, use_container_width=True)
+
+with tabs[2]:
+    st.header("Download Tabs Content")
+
+    zip_buffer = create_zip_file()
+    st.download_button(label="Download as ZIP", data=zip_buffer, file_name="tabs_content.zip", mime="application/zip")
+
+
+
+#zip
