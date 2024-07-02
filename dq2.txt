@@ -1,304 +1,54 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
 
+# Sample dataframe creation
+data = {
+    'Region': ['HBAP', 'HBAP', 'HBAP', 'HBAP', 'HBAP', 'HBAP'],
+    'Country': ['MNL', 'MNL', 'MNL', 'MNL', 'MNL', 'MNL'],
+    'KPIs': ['TTD', 'Approved %', 'Credit STP', 'Approved with 1 to 3 Days', 'Approved within 1 to 13 Days', 'Avg Approved TAT'],
+    'May-2023': [14279, 15.54, 64.45, 38.24, 24.21, 4.66],
+    'Jun-2023': [14090, 17.61, 71.86, 41.88, 25.73, 4.24],
+    'Jul-2023': [19707, 12.75, 70.83, 29.8, 11.87, 4.71],
+    'Aug-2023': [23661, 16.42, 70.86, 12.6, 34.23, 7.61],
+    'Sep-2023': [20562, 15.88, 74.83, 19.36, 9.02, 4.77],
+    'Oct-2023': [25478, 18.43, 73.63, 11.93, 26.65, 6.6],
+    'Nov-2023': [23285, 14.73, 84.12, 18.58, 24.22, 6.63],
+    'Dec-2023': [34318, 7.44, 88.74, 11.11, 5.92, 7.87],
+    'Jan-2024': [40095, 9.4, 84.96, 17.32, 6.25, 5.02],
+    'Feb-2024': [42000, 10.2, 89.0, 18.0, 7.0, 5.5] # Sample data for additional month
+}
 
-# Initialize session state
-if 'dashboard_generated' not in st.session_state:
-    st.session_state.dashboard_generated = False
+df_l = pd.DataFrame(data)
 
-# Reading CSV files
-df = pd.read_csv("percentile_table.csv")
-max_df = pd.read_csv("MaximumValueSenseCheck.csv")
-missing_df = pd.read_csv("missing_vals_table.csv")
-psi_df = pd.read_csv("psi.csv")
-indipsi_df = pd.read_csv("indipsi.csv")
+# Replacing values in the 'KPIs' column
+df_l['KPIs'] = df_l['KPIs'].replace({
+    'ad_Approval_rate': 'Approved %',
+    'ttd_CreditSTP_rate': 'Credit STP',
+    'approv_5days_Approved_rate': 'Approved with 1 to 3 Days',
+    'approv_t113days_Approved_rate': 'Approved within 1 to 13 Days',
+    'Avg_TAT_Approved_Days': 'Avg Approved TAT'
+})
 
-# Display Shift Summary
-def display_shift_summary():
-    shift_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
-    shift_summary = df[shift_columns].apply(pd.Series.value_counts).fillna(0).astype(int)
-    st.write("Shift Summary Count")
-    st.dataframe(shift_summary, use_container_width=True)
+# Generate trendlines for each KPI
+def generate_trendline(data_row):
+    months = data.columns[3:]  # Skip 'Region', 'Country', and 'KPIs'
+    values = data_row[3:]  # Corresponding values for the months
+    trend_data = pd.DataFrame({'Month': months, 'Value': values})
+    chart = alt.Chart(trend_data).mark_line().encode(
+        x=alt.X('Month', axis=alt.Axis(labels=False)),
+        y=alt.Y('Value', axis=alt.Axis(labels=False)),
+    ).properties(width=100, height=20)
+    return chart
 
-# Display Shift Values
-def display_shift_values(value):
-    shift_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
-    if value in df['Values'].values:
-        st.write(f'Shift Values for {value}')
-        st.dataframe(df[df['Values'] == value][shift_columns].reset_index(drop=True),hide_index=True)
-        
+trendlines = df_l.apply(generate_trendline, axis=1)
 
-# Display Index Names
-def display_index_names(shift_type):
-    shift_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
-    filtered_df = df[(df[shift_columns] == shift_type).any(axis=1)]
-    result = {col: filtered_df[filtered_df[col] == shift_type]['Values'].tolist() for col in shift_columns}
-    result_df = pd.DataFrame.from_dict(result, orient='index').transpose()
-    st.write(f'Shift Values for {shift_type}')
-    st.dataframe(result_df, use_container_width=True,hide_index=True)
+# Combine the trendlines with the original dataframe
+df_l['Trend'] = trendlines
 
-# Display Selected Value
-def display_selected_value(value):
-    st.write(f'Maximum Value Sense for {value}')
-    selected_row = max_df[max_df[max_df.columns[0]] == value]
-    st.dataframe(selected_row.reset_index(drop=True),hide_index=True)
+# Displaying the dataframe in Streamlit
+st.markdown("***KPI Snapshot***")
+for i, row in df_l.iterrows():
+    st.write(row.drop('Trend').to_frame().T)  # Display the row except the Trend column
+    st.altair_chart(row['Trend'])  # Display the trendline
 
-# Display Grouped Shift
-def display_grouped_shift(selected_ranges):
-    labels = ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"]
-    bins = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    max_df['Shift % Range'] = pd.cut(max_df['Shift %'], bins=bins, labels=labels, include_lowest=True)
-    grouped = max_df.groupby('Shift % Range')[max_df.columns[0]].apply(list).reset_index()
-    filtered_grouped = grouped[grouped['Shift % Range'].isin(selected_ranges)]
-    expanded_rows = []
-    for _, row in filtered_grouped.iterrows():
-        shift_range = row['Shift % Range']
-        values = row[max_df.columns[0]]
-        for value in values:
-            expanded_rows.append({'Shift % Range': shift_range, max_df.columns[0]: value})
-    expanded_df = pd.DataFrame(expanded_rows)
-    st.write("Values grouped by Shift %")
-    st.dataframe(expanded_df,hide_index=True)
-
-# Display High Shift
-def display_high_shift():
-    st.write("Values with Shift % > 50%")
-    high_shift = max_df[max_df['Shift %'] > 0.50]
-    st.dataframe(high_shift[max_df.columns[0]],hide_index=True)
-
-# Display Shift Summary Missing
-def display_shift_summary_missing():
-    shift_summary = missing_df['Shift'].value_counts().reset_index()
-    shift_summary.columns = ['Shift', 'Count']
-    st.write("Summary of Missing Values")
-    st.dataframe(shift_summary,hide_index=True)
-
-# Display Values for Shift
-def display_values_for_shift(shift_type):
-    filtered_df = missing_df[missing_df['Shift'] == shift_type]
-    st.write(f'Shift Type: {shift_type}')
-    st.dataframe(filtered_df[filtered_df.columns[0]].reset_index(drop=True),hide_index=True)
-
-# Display PSI Overview
-def display_psi_overview():
-    def color_code_rag(val):
-        if val == "No Shift":
-            return 'background-color: green'
-        elif val == "Moderate Shift":
-            return 'background-color: yellow'
-        elif val == "Significant Shift":
-            return 'background-color: red'
-        else:
-            return ''
-    
-    st.write("PSI Values Overview")
-    styled_df = psi_df.style.applymap(color_code_rag, subset=['RAG']).hide(axis='index')
-    st.dataframe(styled_df,hide_index=True)    
-    
-# Display Column Details
-def display_column_details(selected_attribute):
-    st.write(f'PSI for {selected_attribute}')
-    psi_value = psi_df[psi_df['Attribute'] == selected_attribute]['PSI'].values[0]
-    st.write(f'PSI Value: {psi_value}')
-    attribute_data = indipsi_df[indipsi_df['Attribute'] == selected_attribute]
-    st.dataframe(attribute_data, use_container_width=True, hide_index=True)
-    
-
-    
-def display_column_graph(selected_attribute):
-    df = indipsi_df
-
-    # Convert percentage strings to float
-    df['Benchmark %Acc'] = df['Benchmark %Acc'].str.rstrip('%').astype(float)
-    df['Validation %Acc'] = df['Validation %Acc'].str.rstrip('%').astype(float)
-
-    # Filter dataframe based on the selected attribute
-    filtered_df = df[df['Attribute'] == selected_attribute]
-
-    # Plotting with Plotly
-    fig = go.Figure()
-
-    # Bar chart for Validation %Acc
-    fig.add_trace(go.Bar(
-        x=filtered_df['Nodes'],
-        y=filtered_df['Validation %Acc'],
-        name='Validation %Acc',
-        marker_color='blue'
-    ))
-
-    # Line chart for Benchmark %Acc
-    fig.add_trace(go.Scatter(
-        x=filtered_df['Nodes'],
-        y=filtered_df['Benchmark %Acc'],
-        name='Benchmark %Acc',
-        mode='lines+markers',
-        marker_color='red'
-    ))
-
-    # Adding labels and title
-    fig.update_layout(
-        title=f'Validation %Acc and Benchmark %Acc plot for {selected_attribute}',
-        xaxis_title='Nodes',
-        yaxis_title='Percentage Accuracy',
-        legend=dict(x=0.01, y=0.99)
-    )
-
-    # Display the plot in Streamlit
-    st.plotly_chart(fig)
-
-# Sidebar Configuration
-st.sidebar.header("Data Configuration")
-total_months = st.sidebar.number_input("Total Months", value=12)
-benchmark_months = st.sidebar.number_input("Benchmark Months", value=6)
-nodes_considered = st.sidebar.number_input("Nodes Considered", value=10)
-generate_button = st.sidebar.button("Generate Dashboard")
-st.title('Data Quality Checks Dashboard')
-
-
-if generate_button or st.session_state.dashboard_generated:
-    st.session_state.dashboard_generated = True
-    st.sidebar.write("Current Month = Dec 2023")
-    st.sidebar.write("RAG Status for PSI:")
-    st.sidebar.image("PSI.png", caption="RAG Status for PSI", width=300)
-    st.sidebar.write("RAG Status for Percentile Variation:")
-    st.sidebar.image("Percentile.png", caption="RAG Status for Percentile Variation", width=300)
-    st.sidebar.write("RAG Status for Missing Value Checks:")
-    st.sidebar.image("Missing.png", caption="RAG Status for Missing Value Checks", width=300)
-
-    tabs = st.tabs(["Population Stability Index", "Percentile Variation", "Maximum Value Sense Checks", "Missing Value Checks", "Columnar View"])
-
-    with tabs[0]:
-        st.header("Population Stability Index")
-        st.write("The Population Stability Index (PSI) measures the stability of a population's distribution.")
-        st.write("It helps to monitor changes in the distribution of a variable over time.")
-        with st.expander("1. PSI Values Overview"):
-            display_psi_overview()
-        with st.expander("2. PSI for Selected Variable"):
-            unique_columns = psi_df["Attribute"].unique()
-            selected_column = st.selectbox("Select Column", unique_columns)
-            display_column_details(selected_column)
-        with st.expander("Graphical Representation of Selected Variable"):
-            display_column_graph(selected_column)
-
-    with tabs[1]:
-        st.header("Percentile Variation")
-        st.write("Percentile Variation shows the shift in percentiles of a distribution over time.")
-        st.write("It helps to understand how different segments of the population are shifting.")
-        with st.expander("1. Shift Summary Table"):
-            display_shift_summary()
-        with st.expander("2. Shift Values for Selected Column"):
-            value = st.selectbox("Select Column", df['Values'].unique())
-            display_shift_values(value)
-        with st.expander("3. Shift Type View"):
-            shift_types = ["No Shift", "Moderate Shift", "Significant Shift", "Blanks"]
-            shift_type = st.selectbox("Select Shift Type", shift_types)
-            display_index_names(shift_type)
-
-    with tabs[2]:
-        st.header("Max Value Sense Check")
-        st.write("Maximum Value Sense Checks validate the reasonableness of the maximum values in the dataset.")
-        st.write("It ensures that the highest values conform to expected ranges and business rules.")        
-        with st.expander("1. Select Value"):
-            selected_value = st.selectbox("Select Value", max_df[max_df.columns[0]].unique())
-            display_selected_value(selected_value)
-        with st.expander("2. Values with Shift > 50%"):
-            display_high_shift()
-        with st.expander("3. Shift Grouping"):
-            range_labels = ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"]
-            selected_ranges = st.multiselect("Select Ranges", range_labels, default=range_labels)
-            display_grouped_shift(selected_ranges)
-
-    with tabs[3]:
-        st.header("Missing Value Checks")
-        st.write("Missing Value Checks analyze the presence and patterns of missing values in the dataset.")
-        st.write("It helps to understand the extent and impact of missing data on analysis.")
-        with st.expander("1. Data Preview"):
-            st.dataframe(missing_df, use_container_width=True)
-        with st.expander("2. Summary of Shift Column"):
-            display_shift_summary_missing()
-        with st.expander("3. Values for Selected Shift Type"):
-            shift_types_missing = missing_df["Shift"].unique()
-            selected_shift_type = st.selectbox("Select Shift Type", shift_types_missing)
-            display_values_for_shift(selected_shift_type)
-
-    with tabs[4]:
-        st.header("Comparative Analysis")
-        st.write("The Comparative Analysis provides a detailed comparison of the selected columns across various metrics.")
-
-        # Select 5 important columns
-        st.write("Select 5 Important Columns for Comparison")
-        all_columns = set(psi_df['Attribute']).union(set(df['Values'])).union(set(max_df[max_df.columns[0]])).union(set(missing_df[missing_df.columns[0]]))
-        selected_columns = st.multiselect("Select Columns", all_columns, max_selections=5)
-
-        if len(selected_columns) == 5:
-            st.write("Comparison of Selected Columns")
-
-
-            # Display other metrics comparison
-            st.subheader("Metrics")
-            metrics_data = {
-                'Attribute': selected_columns,
-                'PSI RAG': [psi_df[psi_df['Attribute'] == col]['RAG'].values[0] if col in psi_df['Attribute'].values else 'N/A' for col in selected_columns],
-                'Missing Value Checks Shift': [missing_df[missing_df[missing_df.columns[0]] == col]['Shift'].values[0] if col in missing_df[missing_df.columns[0]].values else 'N/A' for col in selected_columns],
-                'Shift % at Max Value Sense Check': [max_df[max_df[max_df.columns[0]] == col]['Shift %'].values[0] if col in max_df[max_df.columns[0]].values else 'N/A' for col in selected_columns],
-                'Standard Deviation of Percentile Variation': [df[df['Values'] == col].iloc[:, 1:].std().mean() if col in df['Values'].values else 'N/A' for col in selected_columns]
-            }
-
-            metrics_df = pd.DataFrame(metrics_data)
-            st.dataframe(metrics_df, use_container_width=True,hide_index=True)
-
-            # Display PSI Comparison
-            st.subheader("Population Stability Index (PSI)")
-            psi_comparison = psi_df[psi_df['Attribute'].isin(selected_columns)]
-            st.dataframe(psi_comparison,hide_index=True)
-
-            # Plotting PSI values
-            psi_chart = alt.Chart(psi_comparison).mark_bar().encode(
-                x=alt.X('Attribute:N', title='Attribute'),
-                y=alt.Y('PSI:Q', title='PSI Value')
-            ).properties(title="PSI Comparison")
-
-            st.altair_chart(psi_chart, use_container_width=True)
-
-
-            # Display Percentile Variation Comparison
-            st.subheader("Percentile Variation")
-            percentile_comparison = df[df['Values'].isin(selected_columns)]
-            st.dataframe(percentile_comparison,hide_index=True)
-
-            # Display Maximum Value Sense Checks Comparison
-            st.subheader("Maximum Value Sense Checks")
-            max_value_comparison = max_df[max_df[max_df.columns[0]].isin(selected_columns)]
-            st.dataframe(max_value_comparison,hide_index=True)
-
-            # Display Missing Value Checks Comparison
-            st.subheader("Missing Value Checks")
-            missing_value_comparison = missing_df[missing_df[missing_df.columns[0]].isin(selected_columns)]
-            st.dataframe(missing_value_comparison,hide_index=True)
-
-
-
-        else:
-            st.write("Please select exactly 5 columns for comparison.")
-            
-            
-def color_metrics(val):
-    color_map = {
-        "No Shift": "#231F20",
-        "Moderate Shift": "#9FA1A4",
-        "Significant Shift": "#EE3524"
-    }
-    return f"background-color: {color_map.get(val, '')}"
-
-
-# Apply conditional formatting
-                styled_metrics_df = metrics_df.style.applymap(color_metrics, subset=['PSI RAG', 'Missing Value Checks Shift'])
-
-                st.write(styled_metrics_df.to_html(), unsafe_allow_html=True,hide_index=True,use_container_width=True)
