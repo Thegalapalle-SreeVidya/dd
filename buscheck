@@ -1,0 +1,86 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+
+# Function to check business rules
+def check_business_rules(df, mapping):
+    results = {}
+    
+    # Dates check
+    if mapping['Open Date'] and mapping['Open Date'] in df.columns:
+        results['Open Date'] = df[mapping['Open Date']].isnull().sum()
+    
+    # Status check
+    if mapping['Status'] and mapping['Status'] in df.columns:
+        results['Status'] = (df[mapping['Status']].diff().fillna(0) < 0).sum()
+    
+    # Limit checks
+    for limit_col in ['Credit Limit', 'Cash Limit', 'Original Loan Amount']:
+        if mapping[limit_col] and mapping[limit_col] in df.columns:
+            results[limit_col] = (df[mapping[limit_col]] <= 0).sum()
+    
+    # Balance check
+    if mapping['Balance'] and mapping['Balance'] in df.columns and mapping['Total Due'] and mapping['Total Due'] in df.columns:
+        results['Balance'] = (df[mapping['Balance']] < df[mapping['Total Due']]).sum()
+    
+    # Installment check
+    if mapping['Installment'] and mapping['Installment'] in df.columns:
+        results['Installment'] = (df[mapping['Installment']] <= 0).sum()
+    
+    # Past Due Amount checks
+    if mapping['Past Due Amount'] and mapping['Past Due Amount'] in df.columns and mapping['DPD'] and mapping['DPD'] in df.columns:
+        past_due_issues = ((df[mapping['Past Due Amount']] > 0) & (df[mapping['DPD']] == 0)).sum()
+        past_due_issues += ((df[mapping['Past Due Amount']] == 0) & (df[mapping['DPD']] > 0)).sum()
+        results['Past Due Amount'] = past_due_issues
+    
+    # Payment check
+    if mapping['Payment'] and mapping['Payment'] in df.columns and mapping['Installment'] and mapping['Installment'] in df.columns:
+        results['Payment'] = (df[mapping['Payment']] < df[mapping['Installment']]).sum()
+    
+    # Closure check
+    if mapping['Closure Date'] and mapping['Closure Date'] in df.columns and mapping['Open Date'] and mapping['Open Date'] in df.columns:
+        results['Closure Date'] = (df[mapping['Closure Date']] < df[mapping['Open Date']]).sum()
+    
+    return results
+
+# Streamlit app layout
+st.title("Business Checks Validator")
+
+# File upload
+uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx"])
+
+if uploaded_file:
+    if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
+
+    st.write("File uploaded successfully!")
+    st.write("Please map the following columns:")
+
+    # Define required columns with descriptions
+    required_columns = {
+        'Open Date': 'Opened Date should not be empty',
+        'Status': 'Account Status Flag',
+        'Credit Limit': 'Credit Limit',
+        'Cash Limit': 'Cash Limit',
+        'Original Loan Amount': 'Total Loan Amount',
+        'Balance': 'Current balance',
+        'Total Due': 'Total amount due on the account',
+        'Installment': 'Installment Amount or Actual Payment Amount',
+        'Past Due Amount': 'Past due amount or Overdue Amount',
+        'DPD': 'Days past due or Days Delay Payment',
+        'Payment': 'Payment amount',
+        'Closure Date': 'Closure Date if Account is Closed or Anticipated Closure date (if populated)'
+    }
+
+    # Column mapping with descriptions
+    mapping = {}
+    for col, description in required_columns.items():
+        mapping[col] = st.selectbox(f"{col} ({description})", options=[None] + list(df.columns), index=0)
+
+    # Perform checks
+    if st.button("Validate Business Checks"):
+        results = check_business_rules(df, mapping)
+        st.write("Validation Results:")
+        st.write(results)
