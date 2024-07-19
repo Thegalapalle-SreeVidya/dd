@@ -1,90 +1,74 @@
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import os
 
-# Sample Data for Demonstration
-df = pd.DataFrame({
-    'Category': ['A', 'B', 'C', 'D'],
-    'Values': [10, 20, 30, 40]
-})
+Few Shot Prompting :
 
-def create_pdf(dataframes, charts):
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
+temperature=0.3,  # Lower temperature for more deterministic responses
+top_p=0.9,        # Allows for a broader range of tokens
+frequency_penalty=0.5,  # Discourages repetition
+presence_penalty=0.0   # Neutral on introducing new topics
 
-    y_position = height - 40
-    
-    for i, (title, df) in enumerate(dataframes.items()):
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(30, y_position, title)
-        y_position -= 20
 
-        # Draw the dataframe as text
-        c.setFont("Helvetica", 10)
-        text = df.to_string(index=False)
-        for line in text.split('\n'):
-            c.drawString(30, y_position, line)
-            y_position -= 12
 
-        y_position -= 20  # Space between sections
+Act as a Data Analyst, you are given a dataset with KPI values across 13 months for multiple KPIs related to banking operations. Each KPI has a description provided. Analyze the dataset and provide detailed comments comparing all possible scenarios for all KPIs.This includes identifying significant changes, consistency, possible reasons for changes, and any correlations or interdependencies between KPIs.
 
-        if y_position < 100:
-            c.showPage()
-            y_position = height - 40
+Here are some examples of the data and descriptions:
 
-    for i, (title, chart) in enumerate(charts.items()):
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(30, y_position, title)
-        y_position -= 20
+Data : Comments.csv
 
-        # Save the chart to a temporary file
-        temp_image_path = f"chart_{i}.png"
-        chart.savefig(temp_image_path)
-        c.drawImage(temp_image_path, 30, y_position - 200, width=500, height=200)
-        y_position -= 220
+Descriptions : descriptions.csv
 
-        if y_position < 100:
-            c.showPage()
-            y_position = height - 40
+Example 1:
+KPI: Credit_STP
+Data: [622, 637, 661, 721, 798, 937, 1063, 1131, 862, 751, 1126, 1638, 1897]
+Description: Number of credit transactions processed through the Straight Through Process (STP) each month.
+Analysis:
+1. Significant changes: Noticeable increase in the number of credit transactions processed through STP from month 1 to month 7, with a significant peak in month 12.
+2. Consistency: The number of transactions generally increases, with some fluctuations in months 8 and 9.
+3. Possible reasons: Improved STP technology and processes, seasonal variations, and increased adoption of digital banking services.
+4. Correlations: Higher STP transactions correlate with improved transaction approval rates and overall transaction volume.
 
-        # Clean up the temporary file
-        os.remove(temp_image_path)
+Example 2:
+KPI: TTD_approval_rate
+Data: [65, 65, 66, 65, 64, 63, 64, 65, 65, 65, 69, 66, 60, 58]
+Description: Percentage of approved transactions out of total transactions each month.
+Analysis:
+1. Significant changes: The approval rate fluctuates slightly but generally remains stable, with a noticeable decrease in months 12 and 13.
+2. Consistency: The approval rate is consistent with minor fluctuations, except for the drop in the last two months.
+3. Possible reasons: Changes in approval criteria, seasonal variations, or increased volume of transactions leading to more stringent approvals.
+4. Correlations: The approval rate correlates with the overall transaction volume and may inversely correlate with the decline and cancellation rates.
 
-    c.save()
-    buffer.seek(0)
-    return buffer
+Now analyze the following KPIs:
 
-st.title("Streamlit Dashboard with Download Option")
+List the KPI's and description
 
-tabs = st.tabs(["Tab 1", "Tab 2", "Download"])
+For each KPI, provide:
+1. Any significant changes in the KPI value over the 13 months.
+2. Consistency of these changes across the months.
+3. Possible reasons for the changes based on the descriptions provided.
+4. Any correlations or interdependencies between KPIs.
 
-dataframes = {}
-charts = {}
 
-with tabs[0]:
-    st.header("Tab 1: Data and Chart")
-    st.write(df)
-    dataframes["Tab 1: Data"] = df
-    fig1, ax1 = plt.subplots()
-    df.plot(kind='bar', x='Category', y='Values', ax=ax1)
-    st.pyplot(fig1)
-    charts["Tab 1: Chart"] = fig1
 
-with tabs[1]:
-    st.header("Tab 2: Another Chart")
-    fig2, ax2 = plt.subplots()
-    df.plot(kind='line', x='Category', y='Values', ax=ax2)
-    st.pyplot(fig2)
-    charts["Tab 2: Another Chart"] = fig2
 
-with tabs[2]:
-    st.header("Download Dashboard Content")
 
-    if st.button("Download as PDF"):
-        pdf_buffer = create_pdf(dataframes, charts)
-        st.download_button(label="Download PDF", data=pdf_buffer, file_name="dashboard_content.pdf", mime="application/pdf")
+
+ zero-shot prompt:
+
+temperature=0.3,  # Lower temperature for more deterministic responses
+top_p=0.9,        # Allows for a broader range of tokens
+frequency_penalty=0.5,  # Discourages repetition
+presence_penalty=0.0   # Neutral on introducing new topics
+
+prompt = 
+You are given a dataset with KPI values across 13 months for multiple KPIs. Each KPI has a description provided. Analyze the dataset and provide detailed comments comparing all possible scenarios for all KPIs.
+Here are some examples of the data and descriptions:
+Data , Descriptions
+
+For each KPI, provide:
+1. Any significant changes in the KPI value over the 13 months.
+2. Consistency of these changes across the months.
+3. Possible reasons for the changes based on the descriptions provided.
+4. Any correlations or interdependencies between KPIs.
+
+Please provide a detailed analysis for each KPI.
+
+
