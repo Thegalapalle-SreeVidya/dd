@@ -1,146 +1,78 @@
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import os
+#New :
+def significant_shift_rag(rag_values):
+    return len([rag for rag in rag_values if rag == 'Significant Shift'])
 
-# Sample dataframe creation
-data = {
-    'Region': ['HBAP', 'HBAP', 'HBAP', 'HBAP', 'HBAP', 'HBAP'],
-    'Country': ['MNL', 'MNL', 'MNL', 'MNL', 'MNL', 'MNL'],
-    'KPIs': ['TTD', 'Approved %', 'Credit STP', 'Approved with 1 to 3 Days', 'Approved within 1 to 13 Days', 'Avg Approved TAT'],
-    'May-2023': [14279, 15.54, 64.45, 38.24, 24.21, 4.66],
-    'Jun-2023': [14090, 17.61, 71.86, 41.88, 25.73, 4.24],
-    'Jul-2023': [19707, 12.75, 70.83, 29.8, 11.87, 4.71],
-    'Aug-2023': [23661, 16.42, 70.86, 12.6, 34.23, 7.61],
-    'Sep-2023': [20562, 15.88, 74.83, 19.36, 9.02, 4.77],
-    'Oct-2023': [25478, 18.43, 73.63, 11.93, 26.65, 6.6],
-    'Nov-2023': [23285, 14.73, 84.12, 18.58, 24.22, 6.63],
-    'Dec-2023': [34318, 7.44, 88.74, 11.11, 5.92, 7.87],
-    'Jan-2024': [40095, 9.4, 84.96, 17.32, 6.25, 5.02],
-    'Feb-2024': [42000, 10.2, 89.0, 18.0, 7.0, 5.5] # Sample data for additional month
-}
+# Function to determine significant shifts for Missing Values
+def significant_shift_values(shift_values):
+    return len([shift for shift in shift_values if shift == 'Significant Shift'])
 
-df_l = pd.DataFrame(data)
+# Function to determine significant shifts for Maximum Values
+def significant_shift_max_value(shift_percent_values):
+    return len([shift for shift in shift_percent_values if shift > 0.50])
+# Function to determine significant shifts for Percentile
+def significant_shift_percentile(df, percentile_columns):
+    return len([shift for col in percentile_columns for shift in df[col] if shift == 'Significant Shift'])
 
-# Replacing values in the 'KPIs' column
-df_l['KPIs'] = df_l['KPIs'].replace({
-    'ad_Approval_rate': 'Approved %',
-    'ttd_CreditSTP_rate': 'Credit STP',
-    'approv_5days_Approved_rate': 'Approved with 1 to 3 Days',
-    'approv_t113days_Approved_rate': 'Approved within 1 to 13 Days',
-    'Avg_TAT_Approved_Days': 'Avg Approved TAT'
-})
+# Define the columns for percentile shifts
+percentile_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
 
-# Generate trendlines for each KPI using Matplotlib
-trendlines = []
-for _, row in df_l.iterrows():
-    months = df_l.columns[3:]  # Skip 'Region', 'Country', and 'KPIs'
-    values = row[3:]  # Corresponding values for the months
-    fig, ax = plt.subplots()
-    ax.plot(months, values, marker='o')
-    ax.set_title(f"Trend for {row['KPIs']}")
-    ax.set_xlabel('Month')
-    ax.set_ylabel('Values')
-    trendlines.append(fig)
+# Calculate significant shifts
+psi_significant_shifts = significant_shift_rag(psi_df['RAG'])
+missing_value_significant_shifts = significant_shift_values(missing_df['Shift'])
+max_value_significant_shifts = significant_shift_max_value(max_df['Shift %'])
+percentile_significant_shifts = significant_shift_percentile(df, percentile_columns)
 
-# Function to create PDF
-def create_pdf(dataframes, charts):
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
 
-    y_position = height - 40
-    
-    for i, (title, df) in enumerate(dataframes.items()):
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(30, y_position, title)
-        y_position -= 20
 
-        # Draw the dataframe as text
-        c.setFont("Helvetica", 10)
-        text = df.to_string(index=False)
-        for line in text.split('\n'):
-            c.drawString(30, y_position, line)
-            y_position -= 12
-
-        y_position -= 20  # Space between sections
-
-        if y_position < 100:
-            c.showPage()
-            y_position = height - 40
-
-    for i, (title, chart) in enumerate(charts.items()):
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(30, y_position, title)
-        y_position -= 20
-
-        # Save the chart to a temporary file
-        temp_image_path = f"chart_{i}.png"
-        chart.savefig(temp_image_path)
-        c.drawImage(temp_image_path, 30, y_position - 200, width=500, height=200)
-        y_position -= 220
-
-        if y_position < 100:
-            c.showPage()
-            y_position = height - 40
-
-        # Clean up the temporary file
-        os.remove(temp_image_path)
-
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-def main():
-    st.title("Streamlit Dashboard with Download Option")
-
-    tabs = st.tabs(["KPI Snapshot", "Volume Management", "Time Metrics", "Operations Management", "Quality Management", "Download"])
-
-    dataframes = {}
-    charts = {}
-
-    with tabs[0]:
-        st.markdown("***KPI Snapshot***")
-        st.dataframe(df_l)
-        dataframes["KPI Snapshot"] = df_l
-
-        st.markdown("***Trendlines***")
-        cols = st.columns(6)  # Create 6 columns for the trendlines
-
-        for i, fig in enumerate(trendlines):
-            with cols[i % 6]:  # Use modulo to wrap around to the next row
-                st.pyplot(fig)
-                charts[f"Trend for {df_l['KPIs'][i]}"] = fig
-
-    with tabs[1]:
-        st.header("Volume Management")
-        # Placeholder content for Volume Management tab
-        st.write("Volume Management content goes here.")
-
-    with tabs[2]:
-        st.header("Time Metrics")
-        # Placeholder content for Time Metrics tab
-        st.write("Time Metrics content goes here.")
-
-    with tabs[3]:
-        st.header("Operations Management")
-        # Placeholder content for Operations Management tab
-        st.write("Operations Management content goes here.")
-
-    with tabs[4]:
-        st.header("Quality Management")
-        # Placeholder content for Quality Management tab
-        st.write("Quality Management content goes here.")
-
+    # Tab 5
     with tabs[5]:
-        st.header("Download Dashboard Content")
+        st.header("Overview")
+        percentile_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
+        overview_columns = ['Data Category', 'Inbound Country', 'Outbound Country', 'Period', 'Benchmark Months', 'Validation Month']
+        outbound_countries = overview_df['Outbound Country'].dropna().tolist()
+        row = overview_df.iloc[0]
 
-        if st.button("Download as PDF"):
-            pdf_buffer = create_pdf(dataframes, charts)
-            st.download_button(label="Download PDF", data=pdf_buffer, file_name="dashboard_content.pdf", mime="application/pdf")
+        # Display the specified columns in a formatted way
+  
+        st.write(f"Data Category: {row['Data Category']}")
+        st.write(f"Inbound Country: {row['Inbound Country']}")
+        st.write(f"Outbound Country: {', '.join(outbound_countries)}")
+        st.write(f"Period: {row['Period']}")
+        st.write(f"Benchmark Months: {row['Benchmark Months']}")
+        st.write(f"Validation Month: {row['Validation Month']}")
+        
+        st.subheader("Significant Shifts Summary")
 
-if __name__ == "__main__":
-    main()
+        col1, col2, col3, col4 = st.columns(4)
+    
+        with col1:
+            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>PSI - {psi_significant_shifts}</div>", unsafe_allow_html=True)
+            with st.expander("Attributes with significant PSI shift"):
+                attributes = psi_df[psi_df['RAG'] == 'Significant Shift']['Attribute'].tolist()
+                for attribute in attributes:
+                    st.write(f"- {attribute}")
+            
+        with col2:
+            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>Missing Value - {missing_value_significant_shifts}</div>", unsafe_allow_html=True)
+            with st.expander("Attributes with significant Missing Value shift"):
+                attributes = missing_df[missing_df['Shift'] == 'Significant Shift']['Attribute'].tolist()
+                for attribute in attributes:
+                    st.write(attribute)
+
+
+        with col3:
+            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>Max Value Shift % - {max_value_significant_shifts}</div>", unsafe_allow_html=True)
+            with st.expander("Attributes with significant Max Value shift"):
+                attributes = max_df[max_df['Shift %'] > 0.50]['Attribute'].tolist()
+                for attribute in attributes:
+                    st.write(f"- {attribute}")
+            
+            
+
+        with col4:
+            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>Percentile Shift - {percentile_significant_shifts}</div>", unsafe_allow_html=True)
+            with st.expander("Attributes with significant Percentile shift"):
+                    significant_percentile_df = df[(df[percentile_columns] == 'Significant Shift').any(axis=1)]
+                    attributes = significant_percentile_df['Values'].tolist()
+                    for attribute in attributes:
+                        st.write(f"- {attribute}")
