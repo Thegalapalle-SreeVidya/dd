@@ -1,30 +1,49 @@
 import streamlit as st
 import pandas as pd
 
+def process_data(df, benchmark_month_number, validation_month):
+    # Ensure the 'Month' column is of integer type
+    df['Month'] = df['Month'].astype('int64')
+    
+    # Calculate the benchmark months based on user input
+    benchmark_months = [validation_month - (j + 1) for j in range(benchmark_month_number)]
+    df_benchmark = df[df['Month'].isin(benchmark_months)]
+    df_current = df[df['Month'] == validation_month]
+
+    # Apply your data processing logic here...
+    # (continue with your existing data processing logic)
+
+    return df  # or other relevant output from your processing logic
+
 def main():
     st.title("Data Quality Analysis Dashboard")
-    st.write("Please upload an Excel file to calculate and view the PSI values and other analytics.")
+    st.write("Please upload an Excel file and provide the required parameters to calculate and view the PSI values and other analytics.")
 
     # File uploader widget
     uploaded_file = st.file_uploader("Choose an Excel file", type=['xlsx'])
     
+    # User inputs for benchmark months and validation month
     if uploaded_file is not None:
-        try:
-            # Read the uploaded file into a DataFrame
-            df = pd.read_excel(uploaded_file)
-            
-            # Process the data
-            with st.spinner('Processing data...'):
-                processed_data = process_data(df)
-                st.success('Data processed successfully!')
-            
-            # Display the processed data
-            st.write("Processed Data:")
-            st.dataframe(processed_data)
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+        benchmark_month_number = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, step=1, value=6)
+        validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, step=1, value=6)
+
+        if st.button("Process Data"):
+            try:
+                # Read the uploaded file into a DataFrame
+                df = pd.read_excel(uploaded_file)
+                
+                # Process the data
+                with st.spinner('Processing data...'):
+                    processed_data = process_data(df, benchmark_month_number, validation_month)
+                    st.success('Data processed successfully!')
+                
+                # Display the processed data
+                st.write("Processed Data:")
+                st.dataframe(processed_data)
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
     else:
-        st.info("Upload an Excel file to begin.")
+        st.info("Upload an Excel file to begin and provide the parameters.")
 
 if __name__ == "__main__":
     main()
