@@ -1,41 +1,30 @@
+import streamlit as st
 import pandas as pd
 
-def process_data(df):
-    # Ensure the 'Month' column is of integer type
-    df['Month'] = df['Month'].astype('int64')
-    
-    # Determine unique columns with more than 3 unique values
-    sufficient_unique_list = [col for col in df.columns if df[col].nunique() > 3]
-    df_proper_unique = df[sufficient_unique_list]
+# Assume process_data is already defined and imported
+# from your_module import process_data
 
-    # Filter columns with excessive unique values or wrong data types
-    categorical_exclude = df_proper_unique.columns[(df_proper_unique.nunique() > 20) & (df_proper_unique.dtypes == "object")]
-    df_proper_unique.drop(categorical_exclude, inplace=True, axis=1)
-    
-    # Classify columns by data type
-    eligible_columns = df_proper_unique.columns.tolist()
-    data_types = df_proper_unique.dtypes.apply(lambda x: x.name.upper()).tolist()
-    eligible_cols_table = pd.DataFrame({"Column Name": eligible_columns, "Data Type": data_types})
-    
-    # Merge PSI tables for each data type
-    all_psi_tables_merged = pd.DataFrame()
-    for data_type, group in eligible_cols_table.groupby("Data Type"):
-        for column in group["Column Name"]:
-            if data_type in ['FLOAT', 'INT']:  # Numerical data types
-                all_psi_tables_merged = pd.concat([all_psi_tables_merged, PSI_table_creation_numerical(column)])
-            elif data_type == 'OBJECT':  # Categorical data type
-                all_psi_tables_merged = pd.concat([all_psi_tables_merged, PSI_table_creation_categorical(column)])
-    
-    # Format and clean up the final PSI table
-    all_psi_tables_merged.reset_index(inplace=True, drop=True)
-    all_psi_tables_merged["Benchmark %"] = all_psi_tables_merged["Benchmark %"].apply(lambda x: f'{x*100:.2f}%')
-    all_psi_tables_merged["Validation %"] = all_psi_tables_merged["Validation %"].apply(lambda x: f'{x*100:.2f}%')
-    all_psi_tables_merged["PSI"] = all_psi_tables_merged["PSI"].apply(lambda x: f'{x:.2f}')
-    all_psi_tables_merged.to_csv("Indpsi.csv")
-    
-    return all_psi_tables_merged
+def main():
+    st.title("Data Quality Analysis Dashboard")
+    st.write("Please upload an Excel file to calculate and view the PSI values and other analytics.")
 
-# This function can be called after uploading a file and reading it as a DataFrame in Streamlit:
-# df = pd.read_excel(uploaded_file)
-# processed_data = process_data(df)
-# st.dataframe(processed_data)
+    # File uploader widget
+    uploaded_file = st.file_uploader("Choose an Excel file", type=['xlsx'])
+    
+    if uploaded_file is not None:
+        # Read the uploaded file into a DataFrame
+        df = pd.read_excel(uploaded_file)
+        
+        # Process the data
+        with st.spinner('Processing data...'):
+            processed_data = process_data(df)
+            st.success('Data processed successfully!')
+        
+        # Display the processed data
+        st.write("Processed Data:")
+        st.dataframe(processed_data)
+    else:
+        st.info("Upload an Excel file to begin.")
+
+if __name__ == "__main__":
+    main()
