@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-# Assume process_data is already defined and imported
-# from your_module import process_data
-
 def main():
     st.title("Data Quality Analysis Dashboard")
     st.write("Please upload an Excel file to calculate and view the PSI values and other analytics.")
@@ -12,17 +9,20 @@ def main():
     uploaded_file = st.file_uploader("Choose an Excel file", type=['xlsx'])
     
     if uploaded_file is not None:
-        # Read the uploaded file into a DataFrame
-        df = pd.read_excel(uploaded_file)
-        
-        # Process the data
-        with st.spinner('Processing data...'):
-            processed_data = process_data(df)
-            st.success('Data processed successfully!')
-        
-        # Display the processed data
-        st.write("Processed Data:")
-        st.dataframe(processed_data)
+        try:
+            # Read the uploaded file into a DataFrame
+            df = pd.read_excel(uploaded_file)
+            
+            # Process the data
+            with st.spinner('Processing data...'):
+                processed_data = process_data(df)
+                st.success('Data processed successfully!')
+            
+            # Display the processed data
+            st.write("Processed Data:")
+            st.dataframe(processed_data)
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
     else:
         st.info("Upload an Excel file to begin.")
 
