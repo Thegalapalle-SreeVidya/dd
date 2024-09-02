@@ -1,58 +1,20 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-
-# Placeholder for your actual functions
-def psi_table_numerical(col_name, df, nodes, merged_df_benchmark_months, merged_df_validation_month):
-    # Your actual function implementation here
-    pass
-
-def psi_table_categorical(col_name, df, nodes, merged_df_benchmark_months, merged_df_validation_month):
-    # Your actual function implementation here
-    pass
-
-def process_data(df, benchmark_month_number, validation_month, nodes):
-    df['Month'] = df['Month'].astype('int64')
-    benchmark_months = [validation_month - j for j in range(benchmark_month_number)]
-    merged_df_benchmark_months = df[df['Month'].isin(benchmark_months)]
-    merged_df_validation_month = df[df['Month'] == validation_month]
-
-    # Process numerical and categorical columns as described
-    psi_overall = []
-    for col in df.columns:
-        if df[col].nunique() > 3:
-            if df[col].dtype in ["float64", "int64", "int32"]:
-                try:
-                    psi_overall.append(psi_table_numerical(col, df, nodes, merged_df_benchmark_months, merged_df_validation_month))
-                except Exception as e:
-                    print(e)
-            else:
-                try:
-                    psi_overall.append(psi_table_categorical(col, df, nodes, merged_df_benchmark_months, merged_df_validation_month))
-                except Exception as e:
-                    print(e)
-
-    # Combining all data into a single DataFrame
-    all_psi_tables_merged = pd.concat(psi_overall, ignore_index=True)
-    all_psi_tables_merged.to_csv("Indpsi.csv")
-    return all_psi_tables_merged
-
-def main():
-    st.title("Data Quality Analysis Dashboard")
-    uploaded_file = st.file_uploader("Choose an Excel file", type=['xlsx'])
-
-    if uploaded_file is not None:
-        df = pd.read_excel(uploaded_file)
-        benchmark_month_number = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, step=1, value=6)
-        validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, step=1, value=6)
-        nodes = st.number_input("Enter the number of nodes you want in the PSI table:", min_value=1, max_value=100, step=1, value=10)
-        
-        if st.button("Process Data"):
-            with st.spinner('Processing data...'):
-                processed_data = process_data(df, benchmark_month_number, validation_month, nodes)
-                st.success('Data processed successfully!')
-                st.write("Processed Data:")
-                st.dataframe(processed_data)
-
-if __name__ == "__main__":
-    main()
+for col in df.columns:
+    if df[col].nunique() > 3:
+        if df[col].dtype in ["float64", "int64", "int32"]:
+            try:
+                result = psi_table_numerical(col, df, nodes, merged_df_benchmark_months, merged_df_validation_month)
+                if result is not None and not result.empty:
+                    psi_overall.append(result)
+                else:
+                    st.write(f"No results for numerical column: {col}")
+            except Exception as e:
+                st.error(f"Error processing numerical column {col}: {str(e)}")
+        else:
+            try:
+                result = psi_table_categorical(col, df, nodes, merged_df_benchmark_months, merged_df_validation_month)
+                if result is not None and not result.empty:
+                    psi_overall.append(result)
+                else:
+                    st.write(f"No results for categorical column: {col}")
+            except Exception as e:
+                st.error(f"Error processing categorical column {col}: {str(e)}")
