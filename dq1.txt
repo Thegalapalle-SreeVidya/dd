@@ -1,42 +1,66 @@
 import streamlit as st
 import pandas as pd
-import os
 import subprocess
+import os
 
-def run_notebook(notebook_path, output_path, params):
-    """Execute the notebook with nbconvert and pass parameters."""
-    command = f"papermill {notebook_path} {output_path} -p benchmark_month_number {params['benchmark_month_number']} -p validation_month {params['validation_month']}"
-    try:
-        subprocess.run(command, shell=True, check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
+# Function to run Jupyter Notebook
+def run_notebook(input_file, benchmark_months, validation_month, nodes):
+    # Save the uploaded file as 'input_file.xlsx'
+    input_file.save("input_file.xlsx")
+    
+    # Execute the Jupyter Notebook with specific inputs
+    subprocess.run(["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", "Code_Input.ipynb"])
+    
+    # Load the output CSV files or process further as needed
+    merged_df = pd.read_excel('merged_df.xlsx')
+    
+    # Additional code to display or further process merged_df
+    st.write(merged_df)
 
-# Upload the Excel file
-uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
-if uploaded_file is not None:
-    # Save the uploaded file for notebook usage
-    file_path = "./uploaded_data.xlsx"
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    st.success("File successfully uploaded and saved.")
+# Streamlit UI
+st.title("Run Jupyter Notebook with Excel Input")
 
-    # Collect parameters from the user
-    benchmark_month_number = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, step=1)
-    validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, step=1)
+# File uploader
+uploaded_file = st.file_uploader("Choose an Excel file", type="xlsx")
 
-    # Button to execute the notebook
-    if st.button("Run Analysis"):
-        params = {
-            "benchmark_month_number": benchmark_month_number,
-            "validation_month": validation_month
-        }
-        with st.spinner('Running the analysis...'):
-            success = run_notebook("Code_input.ipynb", "Code_input_output.ipynb", params)
-            if success:
-                st.success("Analysis completed successfully.")
-                # Optionally, load and display results or provide download links
-                # result_df = pd.read_excel("Code_input_output.xlsx")  # Example
-                # st.write(result_df)
-            else:
-                st.error("Failed to execute the analysis. Please check the notebook and parameters.")
+# Parameters input
+benchmark_months = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, value=6)
+validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, value=12)
+nodes = st.number_input("Enter the number of nodes you want in the PSI table", min_value=1, max_value=20, value=10)
+
+# Run notebook on button click
+if st.button("Run Notebook"):
+    if uploaded_file is not None:
+        run_notebook(uploaded_file, benchmark_months, validation_month, nodes)
+    else:
+        st.error("Please upload an Excel file")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Instead of input(), use parameters passed from Streamlit
+benchmark_month_number = benchmark_months  # This comes from the Streamlit UI
+validation_month = validation_month  # This comes from the Streamlit UI
+nodes = nodes  # This comes from the Streamlit UI
+
+# The rest of the notebook code follows as usual
+
+
+
+
+
