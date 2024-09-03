@@ -1,31 +1,42 @@
-# Parameters cell for Papermill
-benchmark_month_number = 6  # Default value, will be overwritten by Papermill
-validation_month = 12       # Default value, will be overwritten by Papermill
-
-
-# Use parameters directly instead of input()
-list_benchmark_month = []
-for j in range(benchmark_month_number):
-    list_benchmark_month.append(validation_month - (j + 1))
-
-benchmark_months = list_benchmark_month
-merged_df_benchmark_months = merged_df[merged_df["Month"].isin(benchmark_months)]
-merged_df_validation_month = merged_df[merged_df["Month"] == validation_month]
-nodes = 10  # or another parameter if dynamic input is needed later
-
-
-
+import streamlit as st
+import pandas as pd
+import os
 import subprocess
 
 def run_notebook(notebook_path, output_path, params):
+    """Execute the notebook with nbconvert and pass parameters."""
     command = f"papermill {notebook_path} {output_path} -p benchmark_month_number {params['benchmark_month_number']} -p validation_month {params['validation_month']}"
-    subprocess.run(command, shell=True, check=True)
+    try:
+        subprocess.run(command, shell=True, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
-# Example usage in Streamlit:
-if st.button("Run Analysis"):
-    params = {
-        "benchmark_month_number": benchmark_month_number,
-        "validation_month": validation_month
-    }
-    run_notebook("x.ipynb", "x_output.ipynb", params)
-    st.success("Notebook has been executed.")
+# Upload the Excel file
+uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
+if uploaded_file is not None:
+    # Save the uploaded file for notebook usage
+    file_path = "./uploaded_data.xlsx"
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    st.success("File successfully uploaded and saved.")
+
+    # Collect parameters from the user
+    benchmark_month_number = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, step=1)
+    validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, step=1)
+
+    # Button to execute the notebook
+    if st.button("Run Analysis"):
+        params = {
+            "benchmark_month_number": benchmark_month_number,
+            "validation_month": validation_month
+        }
+        with st.spinner('Running the analysis...'):
+            success = run_notebook("Code_input.ipynb", "Code_input_output.ipynb", params)
+            if success:
+                st.success("Analysis completed successfully.")
+                # Optionally, load and display results or provide download links
+                # result_df = pd.read_excel("Code_input_output.xlsx")  # Example
+                # st.write(result_df)
+            else:
+                st.error("Failed to execute the analysis. Please check the notebook and parameters.")
