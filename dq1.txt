@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 import subprocess
-import os
 
 # Function to run Jupyter Notebook
-def run_notebook(input_file, benchmark_months, validation_month, nodes):
+def run_notebook(uploaded_file, benchmark_months, validation_month, nodes):
     # Save the uploaded file as 'input_file.xlsx'
-    input_file.save("input_file.xlsx")
+    with open("input_file.xlsx", "wb") as f:
+        f.write(uploaded_file.getbuffer())
     
     # Execute the Jupyter Notebook with specific inputs
     subprocess.run(["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", "Code_Input.ipynb"])
@@ -34,33 +34,3 @@ if st.button("Run Notebook"):
         run_notebook(uploaded_file, benchmark_months, validation_month, nodes)
     else:
         st.error("Please upload an Excel file")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Instead of input(), use parameters passed from Streamlit
-benchmark_month_number = benchmark_months  # This comes from the Streamlit UI
-validation_month = validation_month  # This comes from the Streamlit UI
-nodes = nodes  # This comes from the Streamlit UI
-
-# The rest of the notebook code follows as usual
-
-
-
-
-
