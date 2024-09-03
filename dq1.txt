@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import subprocess
+import webbrowser
 
 # Function to run Jupyter Notebook
 def run_notebook(uploaded_file, benchmark_months, validation_month, nodes):
@@ -44,7 +45,8 @@ if st.button("Run Notebook"):
         # Option to proceed to the Tabs interface
         if st.button("Proceed to Tabs Interface"):
             st.write("Launching Tabs Interface...")
-            # Run Tabs.py using subprocess.Popen to avoid blocking the current app
-            subprocess.Popen(["streamlit", "run", "Tabs.py"])
+            # Redirect to Tabs.py
+            webbrowser.open("http://localhost:8501")
+            st.stop()
     else:
         st.error("Please upload an Excel file")
