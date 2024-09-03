@@ -1,36 +1,31 @@
-import streamlit as st
-import pandas as pd
-import os
+# Parameters cell for Papermill
+benchmark_month_number = 6  # Default value, will be overwritten by Papermill
+validation_month = 12       # Default value, will be overwritten by Papermill
+
+
+# Use parameters directly instead of input()
+list_benchmark_month = []
+for j in range(benchmark_month_number):
+    list_benchmark_month.append(validation_month - (j + 1))
+
+benchmark_months = list_benchmark_month
+merged_df_benchmark_months = merged_df[merged_df["Month"].isin(benchmark_months)]
+merged_df_validation_month = merged_df[merged_df["Month"] == validation_month]
+nodes = 10  # or another parameter if dynamic input is needed later
+
+
+
 import subprocess
 
-# Function to run the notebook
-def run_notebook(notebook_path, params):
-    """Execute the notebook with nbconvert and pass parameters."""
-    command = f"papermill {notebook_path} {notebook_path}_output.ipynb -p benchmark_month_number {params['benchmark_month_number']} -p validation_month {params['validation_month']}"
+def run_notebook(notebook_path, output_path, params):
+    command = f"papermill {notebook_path} {output_path} -p benchmark_month_number {params['benchmark_month_number']} -p validation_month {params['validation_month']}"
     subprocess.run(command, shell=True, check=True)
 
-# Upload the Excel file
-uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
-if uploaded_file is not None:
-    # Save the uploaded file for notebook usage
-    file_path = "./uploaded_data.xlsx"
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    st.success("File successfully uploaded and saved.")
-
-    # Collect parameters from the user
-    benchmark_month_number = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, step=1)
-    validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, step=1)
-
-    # Button to execute the notebook
-    if st.button("Run Analysis"):
-        params = {
-            "benchmark_month_number": benchmark_month_number,
-            "validation_month": validation_month
-        }
-        with st.spinner('Running the analysis...'):
-            run_notebook("x.ipynb", params)
-            st.success("Analysis completed successfully.")
-
-        # After notebook execution, execute the DQ.py Streamlit code
-        os.system("streamlit run /mnt/data/DQ.py")
+# Example usage in Streamlit:
+if st.button("Run Analysis"):
+    params = {
+        "benchmark_month_number": benchmark_month_number,
+        "validation_month": validation_month
+    }
+    run_notebook("x.ipynb", "x_output.ipynb", params)
+    st.success("Notebook has been executed.")
