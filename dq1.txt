@@ -1,20 +1,36 @@
-for col in df.columns:
-    if df[col].nunique() > 3:
-        if df[col].dtype in ["float64", "int64", "int32"]:
-            try:
-                result = psi_table_numerical(col, df, nodes, merged_df_benchmark_months, merged_df_validation_month)
-                if result is not None and not result.empty:
-                    psi_overall.append(result)
-                else:
-                    st.write(f"No results for numerical column: {col}")
-            except Exception as e:
-                st.error(f"Error processing numerical column {col}: {str(e)}")
-        else:
-            try:
-                result = psi_table_categorical(col, df, nodes, merged_df_benchmark_months, merged_df_validation_month)
-                if result is not None and not result.empty:
-                    psi_overall.append(result)
-                else:
-                    st.write(f"No results for categorical column: {col}")
-            except Exception as e:
-                st.error(f"Error processing categorical column {col}: {str(e)}")
+import streamlit as st
+import pandas as pd
+import os
+import subprocess
+
+# Function to run the notebook
+def run_notebook(notebook_path, params):
+    """Execute the notebook with nbconvert and pass parameters."""
+    command = f"papermill {notebook_path} {notebook_path}_output.ipynb -p benchmark_month_number {params['benchmark_month_number']} -p validation_month {params['validation_month']}"
+    subprocess.run(command, shell=True, check=True)
+
+# Upload the Excel file
+uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
+if uploaded_file is not None:
+    # Save the uploaded file for notebook usage
+    file_path = "./uploaded_data.xlsx"
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    st.success("File successfully uploaded and saved.")
+
+    # Collect parameters from the user
+    benchmark_month_number = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, step=1)
+    validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, step=1)
+
+    # Button to execute the notebook
+    if st.button("Run Analysis"):
+        params = {
+            "benchmark_month_number": benchmark_month_number,
+            "validation_month": validation_month
+        }
+        with st.spinner('Running the analysis...'):
+            run_notebook("x.ipynb", params)
+            st.success("Analysis completed successfully.")
+
+        # After notebook execution, execute the DQ.py Streamlit code
+        os.system("streamlit run /mnt/data/DQ.py")
