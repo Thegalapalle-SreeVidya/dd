@@ -9,13 +9,21 @@ def run_notebook(uploaded_file, benchmark_months, validation_month, nodes):
         f.write(uploaded_file.getbuffer())
     
     # Execute the Jupyter Notebook with specific inputs
-    subprocess.run(["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", "Code_Input.ipynb"])
+    try:
+        result = subprocess.run(
+            ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", "Code_Input.ipynb"],
+            check=True, capture_output=True, text=True
+        )
+        st.success("Notebook executed successfully!")
+        
+        # Load the output CSV files or process further as needed
+        merged_df = pd.read_excel('merged_df.xlsx')
+        st.write(merged_df)
     
-    # Load the output CSV files or process further as needed
-    merged_df = pd.read_excel('merged_df.xlsx')
-    
-    # Additional code to display or further process merged_df
-    st.write(merged_df)
+    except subprocess.CalledProcessError as e:
+        st.error("There was an error executing the notebook.")
+        st.error(e.stdout)
+        st.error(e.stderr)
 
 # Streamlit UI
 st.title("Run Jupyter Notebook with Excel Input")
