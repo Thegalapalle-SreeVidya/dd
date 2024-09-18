@@ -1,78 +1,99 @@
-#New :
-def significant_shift_rag(rag_values):
-    return len([rag for rag in rag_values if rag == 'Significant Shift'])
+import streamlit as st
+import pandas as pd
+import subprocess
+import os
 
-# Function to determine significant shifts for Missing Values
-def significant_shift_values(shift_values):
-    return len([shift for shift in shift_values if shift == 'Significant Shift'])
+# Function to run Jupyter Notebook
+def run_notebook(uploaded_file, benchmark_months, validation_month, nodes):
+    # Save the uploaded file as 'input_file.xlsx'
+    with open("input_file.xlsx", "wb") as f:
+        f.write(uploaded_file.getbuffer())
 
-# Function to determine significant shifts for Maximum Values
-def significant_shift_max_value(shift_percent_values):
-    return len([shift for shift in shift_percent_values if shift > 0.50])
-# Function to determine significant shifts for Percentile
-def significant_shift_percentile(df, percentile_columns):
-    return len([shift for col in percentile_columns for shift in df[col] if shift == 'Significant Shift'])
+    # Execute the Jupyter Notebook with specific inputs
+    try:
+        result = subprocess.run(
+            ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", "Code_Input.ipynb"],
+            check=True, capture_output=True, text=True
+        )
+        st.success("Notebook executed successfully!")
+    except subprocess.CalledProcessError as e:
+        st.error("There was an error executing the notebook.")
+        st.error(e.stdout)
+        st.error(e.stderr)
 
-# Define the columns for percentile shifts
-percentile_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
-
-# Calculate significant shifts
-psi_significant_shifts = significant_shift_rag(psi_df['RAG'])
-missing_value_significant_shifts = significant_shift_values(missing_df['Shift'])
-max_value_significant_shifts = significant_shift_max_value(max_df['Shift %'])
-percentile_significant_shifts = significant_shift_percentile(df, percentile_columns)
-
-
-
-    # Tab 5
-    with tabs[5]:
-        st.header("Overview")
-        percentile_columns = ['P10 Shift', 'P25 Shift', 'P50 Shift', 'P75 Shift', 'P90 Shift']
-        overview_columns = ['Data Category', 'Inbound Country', 'Outbound Country', 'Period', 'Benchmark Months', 'Validation Month']
-        outbound_countries = overview_df['Outbound Country'].dropna().tolist()
-        row = overview_df.iloc[0]
-
-        # Display the specified columns in a formatted way
-  
-        st.write(f"Data Category: {row['Data Category']}")
-        st.write(f"Inbound Country: {row['Inbound Country']}")
-        st.write(f"Outbound Country: {', '.join(outbound_countries)}")
-        st.write(f"Period: {row['Period']}")
-        st.write(f"Benchmark Months: {row['Benchmark Months']}")
-        st.write(f"Validation Month: {row['Validation Month']}")
-        
-        st.subheader("Significant Shifts Summary")
-
-        col1, col2, col3, col4 = st.columns(4)
+# Function to create the overview.csv file
+def create_overview(input_file, data_category, benchmark_month, validation_month):
+    # Load the input file as a dataframe
+    df = pd.read_excel(input_file)
     
-        with col1:
-            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>PSI - {psi_significant_shifts}</div>", unsafe_allow_html=True)
-            with st.expander("Attributes with significant PSI shift"):
-                attributes = psi_df[psi_df['RAG'] == 'Significant Shift']['Attribute'].tolist()
-                for attribute in attributes:
-                    st.write(f"- {attribute}")
-            
-        with col2:
-            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>Missing Value - {missing_value_significant_shifts}</div>", unsafe_allow_html=True)
-            with st.expander("Attributes with significant Missing Value shift"):
-                attributes = missing_df[missing_df['Shift'] == 'Significant Shift']['Attribute'].tolist()
-                for attribute in attributes:
-                    st.write(attribute)
+    # Extract unique values from 'target' for Inbound Country and 'country' for Outbound Country
+    inbound_countries = df['target'].dropna().unique().tolist()
+    outbound_countries = df['country'].dropna().unique().tolist()
 
+    # Prepare the overview data
+    data = {
+        'Data Category': [data_category] * len(outbound_countries),
+        'Inbound Country': inbound_countries[:len(outbound_countries)],  # Ensure matching lengths
+        'Outbound Country': outbound_countries,
+        'Period': ['12 months (Jan-Dec 23)'] * len(outbound_countries),
+        'Benchmark Months': [benchmark_month] * len(outbound_countries),
+        'Validation Month': [validation_month] * len(outbound_countries)
+    }
+    
+    # Create a DataFrame for the overview
+    overview_df = pd.DataFrame(data)
+    
+    # Save the overview as CSV
+    overview_df.to_csv('overview.csv', index=False)
+    
+    # Return the DataFrame for display purposes
+    return overview_df
 
-        with col3:
-            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>Max Value Shift % - {max_value_significant_shifts}</div>", unsafe_allow_html=True)
-            with st.expander("Attributes with significant Max Value shift"):
-                attributes = max_df[max_df['Shift %'] > 0.50]['Attribute'].tolist()
-                for attribute in attributes:
-                    st.write(f"- {attribute}")
-            
-            
+# Streamlit UI for running the notebook and generating the overview.csv
+st.title("Run Notebook with Excel Input and Generate Overview CSV")
 
-        with col4:
-            st.write(f"<div style='background-color: red; color: white; padding: 10px; text-align: center;'>Percentile Shift - {percentile_significant_shifts}</div>", unsafe_allow_html=True)
-            with st.expander("Attributes with significant Percentile shift"):
-                    significant_percentile_df = df[(df[percentile_columns] == 'Significant Shift').any(axis=1)]
-                    attributes = significant_percentile_df['Values'].tolist()
-                    for attribute in attributes:
-                        st.write(f"- {attribute}")
+# File uploader
+uploaded_file = st.file_uploader("Choose an Excel file", type="xlsx")
+
+# Parameters input for running the notebook
+benchmark_months = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, value=6)
+validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, value=10)
+nodes = st.number_input("Enter the number of nodes you want in the PSI table", min_value=1, max_value=20, value=10)
+
+# Run notebook on button click
+if st.button("Run Notebook"):
+    if uploaded_file is not None:
+        run_notebook(uploaded_file, benchmark_months, validation_month, nodes)
+        
+        # Option to proceed to the Tabs interface
+        if st.button("Proceed to Tabs Interface"):
+            st.write("Launching Tabs Interface...")
+            # Run Tabs.py using Streamlit in the same environment
+            os.system("streamlit run Tabs.py")
+    else:
+        st.error("Please upload an Excel file")
+
+# Section for generating overview.csv file
+st.subheader("Generate Overview CSV")
+
+# User input for Data Category
+data_category = st.selectbox("Select Data Category", options=["ICD", "Non-ICD"])
+
+# User input for Benchmark and Validation Months
+benchmark_month_input = st.text_input("Enter Benchmark Months (e.g., Jan-Nov 23)", value="Jan-Nov 23")
+validation_month_input = st.text_input("Enter Validation Month (e.g., Dec 2023)", value="Dec 2023")
+
+if uploaded_file:
+    if st.button("Create Overview CSV"):
+        # Generate the overview.csv file
+        overview_df = create_overview(uploaded_file, data_category, benchmark_month_input, validation_month_input)
+        
+        # Show the dataframe as a table
+        st.write("Overview Data:")
+        st.dataframe(overview_df)
+
+        # Provide a download link for the CSV file
+        st.success("Overview CSV created successfully! Download below.")
+        st.download_button(label="Download overview.csv", data=overview_df.to_csv(index=False), mime='text/csv')
+else:
+    st.info("Please upload an Excel file to generate the Overview CSV.")
