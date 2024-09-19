@@ -4,13 +4,37 @@ import subprocess
 import os
 import sys
 
+# Function to convert month numbers to names
+def get_month_name(month_number):
+    months_mapping = {
+        1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
+        7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December'
+    }
+    return months_mapping.get(month_number, "")
+
 # Function to create overview.csv
 def create_overview(uploaded_file, benchmark_months, validation_month):
     # Load the input data (from the uploaded file)
     input_data = pd.read_excel(uploaded_file)  # Reading the uploaded Excel file
+    
+    # Get the minimum and maximum months from the 'Month' column in the input data
+    min_month = input_data['Month'].min()
+    max_month = input_data['Month'].max()
 
-    # Ask user to enter Data Category (ICD or Non-ICD)
-    data_category = st.selectbox("Choose Data Category", ["ICD", "Non-ICD"])
+    # Convert the month numbers from user input to month names
+    start_month = get_month_name(min_month)  # Start from the minimum month in the dataset
+    end_month = get_month_name(max_month)    # End at the maximum month in the dataset
+
+    # Formatting the period as "X months (Start - End)"
+    period = f"{max_month - min_month + 1} months ({start_month} - {end_month})"
+
+    # Formatting the benchmark months based on user input (e.g., "6 months (Jan - Jun)")
+    benchmark_end_month_number = min_month + benchmark_months - 1
+    benchmark_end_month = get_month_name(benchmark_end_month_number)
+    benchmark_period = f"{benchmark_months} months ({start_month} - {benchmark_end_month})"
+
+    # Formatting validation month (e.g., "Dec")
+    validation_month_name = get_month_name(validation_month)
 
     # Filter 'target' for Inbound Country, removing blanks and duplicates
     inbound_country = input_data['target'].dropna().unique().tolist()
@@ -18,21 +42,14 @@ def create_overview(uploaded_file, benchmark_months, validation_month):
     # Filter 'country' for Outbound Country, removing blanks and duplicates
     outbound_country = input_data['country'].dropna().unique().tolist()
 
-    # Convert 'Month' column from numbers to month names
-    months_mapping = {
-        1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
-        7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December'
-    }
-    input_data['Month'] = input_data['Month'].map(months_mapping)
-
     # Create the overview DataFrame
     overview_data = {
         'Data Category': [data_category],
         'Inbound Country': [", ".join(inbound_country)],
         'Outbound Country': [", ".join(outbound_country)],
-        'Period': [f"12 months({benchmark_months})"],
-        'Benchmark Months': [benchmark_months],
-        'Validation Month': [validation_month]
+        'Period': [period],
+        'Benchmark Months': [benchmark_period],
+        'Validation Month': [validation_month_name]
     }
 
     # Convert to DataFrame
@@ -77,20 +94,35 @@ st.title("Run Jupyter Notebook with Excel Input")
 # File uploader
 uploaded_file = st.file_uploader("Choose an Excel file", type="xlsx")
 
-# Parameters input
-# User input for Data Category
-data_category = st.selectbox("Select Data Category", options=["ICD", "Non-ICD"])
-benchmark_months = st.number_input("Enter the number of Benchmark Months", min_value=1, max_value=12, value=6)
-validation_month = st.number_input("Enter the month you are validating for", min_value=1, max_value=12, value=12)
-nodes = st.number_input("Enter the number of nodes you want in the PSI table", min_value=1, max_value=20, value=10)
+if uploaded_file is not None:
+    # Load the input data to get month details
+    input_data = pd.read_excel(uploaded_file)
+    
+    # Get the min and max months from the data
+    min_month = input_data['Month'].min()
+    max_month = input_data['Month'].max()
+    
+    # Convert numeric months to names
+    available_months = [get_month_name(month) for month in range(min_month, max_month + 1)]
+    
+    # User input for Data Category
+    data_category = st.selectbox("Select Data Category", options=["ICD", "Non-ICD"])
 
-# Run notebook on button click
-if st.button("Run Notebook"):
-    if uploaded_file is not None:
+    # Parameters input
+    benchmark_months = st.number_input(f"Enter the number of Benchmark Months (Min: {min_month}, Max: {max_month - min_month + 1})", min_value=1, max_value=max_month - min_month + 1, value=6)
+
+    # Validation month input
+    validation_month_name = st.selectbox("Select Validation Month", options=available_months)
+    validation_month = available_months.index(validation_month_name) + min_month
+
+    nodes = st.number_input("Enter the number of nodes you want in the PSI table", min_value=1, max_value=20, value=10)
+
+    # Run notebook on button click
+    if st.button("Run Notebook"):
         # Step 1: Create overview.csv before running the notebook
         create_overview(uploaded_file, benchmark_months, validation_month)
         
         # Step 2: Run the Jupyter Notebook
         run_notebook(uploaded_file, benchmark_months, validation_month, nodes)
-    else:
-        st.error("Please upload an Excel file")
+else:
+    st.error("Please upload an Excel file")
